@@ -100,59 +100,103 @@ async function extractContent() {
     const mediaFiles = [];
     let markdownContent = `# ${title}\n\n`;
 
-    // 处理图片
-    console.log('开始处理图片...');
-    const images = article.querySelectorAll('img');
+    // 按照DOM树顺序处理内容
+    console.log('开始处理文章内容...');
     let imageIndex = 0;
-    for (const img of images) {
-      if (img.dataset.src) {
-        try {
-          console.log(`处理图片 ${imageIndex + 1}/${images.length}`);
-          const response = await fetch(img.dataset.src);
-          const blob = await response.blob();
-          const filename = `images/image${imageIndex}.${blob.type.split('/')[1]}`;
-          zip.file(filename, blob);
-          markdownContent += `![图片${imageIndex}](./${filename})\n\n`;
-          mediaFiles.push(filename);
-          imageIndex++;
-        } catch (error) {
-          console.error('下载图片失败:', error);
-          markdownContent += `[图片下载失败]\n\n`;
-        }
-      }
-    }
-
-    // 处理视频
-    console.log('开始处理视频...');
-    const videos = article.querySelectorAll('video');
     let videoIndex = 0;
-    for (const video of videos) {
-      if (video.src) {
-        try {
-          console.log(`处理视频 ${videoIndex + 1}/${videos.length}`);
-          const response = await fetch(video.src);
-          const blob = await response.blob();
-          const filename = `videos/video${videoIndex}.${blob.type.split('/')[1]}`;
-          zip.file(filename, blob);
-          markdownContent += `[视频${videoIndex}](./${filename})\n\n`;
-          mediaFiles.push(filename);
-          videoIndex++;
-        } catch (error) {
-          console.error('下载视频失败:', error);
-          markdownContent += `[视频下载失败]\n\n`;
+
+    // 递归处理DOM节点
+    async function processNode(node) {
+      let content = '';
+
+      // 处理文本节点
+      if (node.nodeType === Node.TEXT_NODE) {
+        const text = node.textContent.trim();
+        if (text) {
+          content += text + '\n';
         }
+        return content;
       }
+
+      // 处理元素节点
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        // 处理图片
+        if (node.tagName === 'IMG' && node.dataset.src) {
+          try {
+            console.log(`处理图片 ${imageIndex + 1}`);
+            const response = await fetch(node.dataset.src);
+            const blob = await response.blob();
+            const filename = `images/image${imageIndex}.${blob.type.split('/')[1]}`;
+            zip.file(filename, blob);
+            content += `![图片${imageIndex}](./${filename})\n\n`;
+            mediaFiles.push(filename);
+            imageIndex++;
+          } catch (error) {
+            console.error('下载图片失败:', error);
+            content += '[图片下载失败]\n\n';
+          }
+          return content;
+        }
+
+        // 处理视频
+        if (node.tagName === 'VIDEO' && node.src) {
+          try {
+            console.log(`处理视频 ${videoIndex + 1}`);
+            const response = await fetch(node.src);
+            const blob = await response.blob();
+            const filename = `videos/video${videoIndex}.${blob.type.split('/')[1]}`;
+            zip.file(filename, blob);
+            content += `[视频${videoIndex}](./${filename})\n\n`;
+            mediaFiles.push(filename);
+            videoIndex++;
+          } catch (error) {
+            console.error('下载视频失败:', error);
+            content += '[视频下载失败]\n\n';
+          }
+          return content;
+        }
+
+        // 处理标题
+        if (/^H[1-6]$/.test(node.tagName)) {
+          const level = node.tagName[1];
+          const text = node.textContent.trim();
+          if (text) {
+            content += '#'.repeat(level) + ' ' + text + '\n\n';
+          }
+          return content;
+        }
+
+        // 处理段落
+        if (node.tagName === 'P') {
+          content += '\n';
+        }
+
+        // 递归处理子节点
+        for (const childNode of node.childNodes) {
+          if (childNode.nodeType === Node.ELEMENT_NODE && childNode.tagName === 'SCRIPT') {
+            continue; // 跳过脚本标签
+          }
+          content += await processNode(childNode);
+        }
+
+        // 段落结束添加额外的换行
+        if (node.tagName === 'P') {
+          content += '\n';
+        }
+
+        return content;
+      }
+
+      return '';
     }
 
-    // 处理文本内容
+    // 处理文章内容
     console.log('处理文本内容...');
     const clonedArticle = article.cloneNode(true);
-    // 移除所有脚本标签
-    clonedArticle.querySelectorAll('script').forEach(el => el.remove());
     // 移除所有样式
     clonedArticle.querySelectorAll('[style]').forEach(el => el.removeAttribute('style'));
-    // 获取纯文本内容
-    markdownContent += clonedArticle.innerText;
+    // 按照DOM树顺序处理内容
+    markdownContent += await processNode(clonedArticle);
 
     // 将Markdown文件添加到zip中
     zip.file('article.md', markdownContent);
