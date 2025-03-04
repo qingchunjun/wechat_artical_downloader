@@ -1,0 +1,37 @@
+{
+  "manifest_version": 3,
+  "name": "微信公众号文章下载器",
+  "version": "1.0",
+  "description": "将微信公众号文章下载为Markdown格式",
+  "permissions": ["activeTab", "downloads", "scripting", "storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "images/icon16.png",
+      "48": "images/icon48.png",
+      "128": "images/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "images/icon16.png",
+    "48": "images/icon48.png",
+    "128": "images/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://mp.weixin.qq.com/*"],
+      "js": ["jszip.min.js", "content.js"],
+      "run_at": "document_start"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "web_accessible_resources": [{
+    "resources": ["jszip.min.js"],
+    "matches": ["*://mp.weixin.qq.com/*"]
+  }],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}
