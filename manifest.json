@@ -5,17 +5,7 @@
   "description": "将微信公众号文章下载为Markdown格式",
   "permissions": ["activeTab", "downloads", "scripting", "storage"],
   "action": {
-    "default_popup": "popup.html",
-    "default_icon": {
-      "16": "images/icon16.png",
-      "48": "images/icon48.png",
-      "128": "images/icon128.png"
-    }
-  },
-  "icons": {
-    "16": "images/icon16.png",
-    "48": "images/icon48.png",
-    "128": "images/icon128.png"
+    "default_popup": "popup.html"
   },
   "content_scripts": [
     {
